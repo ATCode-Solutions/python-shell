@@ -26,6 +26,7 @@ import abc
 import atexit
 import os
 import subprocess
+import threading
 import time
 
 from six import with_metaclass
@@ -112,6 +113,7 @@ class Process(IProcess):
         self._command = command
         self._args = args
         self._kwargs = kwargs
+        self._lock = threading.Lock()
 
     @property
     def stderr(self):
@@ -131,36 +133,39 @@ class Process(IProcess):
 
     @property
     def returncode(self):  # -> Union[int, None]
-        """Returns returncode of process
+        """Returns returncode of process (thread-safe)
 
         For undefined process, it returns None
         """
-
-        if self._process:
-            self._process.poll()  # Ensure we can get the returncode
-            return self._process.returncode
-        return None
+        with self._lock:
+            if self._process:
+                self._process.poll()  # Ensure we can get the returncode
+                return self._process.returncode
+            return None
 
     @property
     def is_finished(self):  # -> Union[bool, None]
-        """Returns whether process has been completed
+        """Returns whether process has been completed (thread-safe)
 
         For undefined process, it returns None.
         """
-        if self._process:
-            return self._process.returncode is not None
-        return None
+        with self._lock:
+            if self._process:
+                self._process.poll()
+                return self._process.returncode is not None
+            return None
 
     @property
     def is_terminated(self):  # -> Union[bool, None]
-        """Returns whether process has been terminated
+        """Returns whether process has been terminated (thread-safe)
 
         For undefined process, it returns None.
         """
-
-        if self._process:
-            return self.returncode == self.PROCESS_IS_TERMINATED_CODE
-        return None
+        with self._lock:
+            if self._process:
+                self._process.poll()
+                return self._process.returncode == self.PROCESS_IS_TERMINATED_CODE
+            return None
 
     @property
     def is_undefined(self):
@@ -173,24 +178,24 @@ class Process(IProcess):
         return [self._command] + list(map(str, args))
 
     def terminate(self):
-        """Terminates process if it's defined"""
+        """Terminates process if it's defined (thread-safe)"""
+        with self._lock:
+            if self._process:
+                self._process.terminate()
 
-        if self._process:
-            self._process.terminate()
-
-            # NOTE(albartash): It's needed, otherwise termination can happen
-            #                  slower than next call of poll().
-            self._process.wait()
-        else:
-            raise UndefinedProcess
+                # NOTE(albartash): It's needed, otherwise termination can happen
+                #                  slower than next call of poll().
+                self._process.wait()
+            else:
+                raise UndefinedProcess
 
     def wait(self):
-        """Wait until process is completed"""
-
-        if self._process:
-            self._process.wait()
-        else:
-            raise UndefinedProcess
+        """Wait until process is completed (thread-safe)"""
+        with self._lock:
+            if self._process:
+                self._process.wait()
+            else:
+                raise UndefinedProcess
 
     @abc.abstractmethod
     def execute(self):
@@ -204,7 +209,7 @@ class SyncProcess(Process):
     with waiting for its completion"""
 
     def execute(self):
-        """Run a process in synchronous way"""
+        """Run a process in synchronous way (thread-safe)"""
 
         arguments = self._make_command_execution_list(self._args)
 
@@ -214,28 +219,29 @@ class SyncProcess(Process):
             'stdin': self._kwargs.get('stdin', Subprocess.PIPE)
         }
 
-        try:
-            self._process = subprocess.Popen(
-                arguments,
-                **kwargs
-            )
-        except (OSError, ValueError):
-            raise RunProcessError(
-                cmd=arguments[0],
-                process_args=arguments[1:],
-                process_kwargs=kwargs
-            )
+        with self._lock:
+            try:
+                self._process = subprocess.Popen(
+                    arguments,
+                    **kwargs
+                )
+            except (OSError, ValueError):
+                raise RunProcessError(
+                    cmd=arguments[0],
+                    process_args=arguments[1:],
+                    process_kwargs=kwargs
+                )
 
-        if is_python2_running():  # Timeout is not supported in Python 2
-            self._process.wait()
-        else:
-            self._process.wait(timeout=self._kwargs.get('timeout', None))
+            if is_python2_running():  # Timeout is not supported in Python 2
+                self._process.wait()
+            else:
+                self._process.wait(timeout=self._kwargs.get('timeout', None))
 
-        if self._process.returncode and self._kwargs.get('check', True):
-            raise Subprocess.CalledProcessError(
-                returncode=self._process.returncode,
-                cmd=str(arguments)
-            )
+            if self._process.returncode and self._kwargs.get('check', True):
+                raise Subprocess.CalledProcessError(
+                    returncode=self._process.returncode,
+                    cmd=str(arguments)
+                )
 
 
 class AsyncProcess(Process):
@@ -250,7 +256,7 @@ class AsyncProcess(Process):
         self._start_time = None
 
     def execute(self):
-        """Run a process in asynchronous way"""
+        """Run a process in asynchronous way (thread-safe)"""
 
         arguments = self._make_command_execution_list(self._args)
 
@@ -260,23 +266,24 @@ class AsyncProcess(Process):
             'stdin': self._kwargs.get('stdin', Subprocess.PIPE)
         }
 
-        try:
-            self._process = subprocess.Popen(
-                arguments,
-                **kwargs
-            )
-        except (OSError, ValueError):
-            raise RunProcessError(
-                cmd=arguments[0],
-                process_args=arguments[1:],
-                process_kwargs=kwargs
-            )
+        with self._lock:
+            try:
+                self._process = subprocess.Popen(
+                    arguments,
+                    **kwargs
+                )
+            except (OSError, ValueError):
+                raise RunProcessError(
+                    cmd=arguments[0],
+                    process_args=arguments[1:],
+                    process_kwargs=kwargs
+                )
 
-        self._timeout = self._kwargs.get('timeout', self.DEFAULT_TIMEOUT)
-        self._start_time = time.time()
+            self._timeout = self._kwargs.get('timeout', self.DEFAULT_TIMEOUT)
+            self._start_time = time.time()
 
     def check_timeout(self):
-        """Check if process has exceeded timeout and terminate if necessary
+        """Check if process has exceeded timeout and terminate if necessary (thread-safe)
         
         Returns:
             bool: True if process is still running within timeout,
@@ -286,34 +293,36 @@ class AsyncProcess(Process):
             ProcessTimeoutError: If process exceeded timeout limit
             UndefinedProcess: If process was never started
         """
-        if not self._process:
-            raise UndefinedProcess
+        with self._lock:
+            if not self._process:
+                raise UndefinedProcess
 
-        if self._process.poll() is not None:
-            return False
+            if self._process.poll() is not None:
+                return False
 
-        if self._timeout and self._start_time:
-            elapsed = time.time() - self._start_time
-            if elapsed > self._timeout:
-                self._process.terminate()
-                self._process.wait()
-                raise ProcessTimeoutError(
-                    timeout=self._timeout,
-                    command=self._command
-                )
+            if self._timeout and self._start_time:
+                elapsed = time.time() - self._start_time
+                if elapsed > self._timeout:
+                    self._process.terminate()
+                    self._process.wait()
+                    raise ProcessTimeoutError(
+                        timeout=self._timeout,
+                        command=self._command
+                    )
 
-        return True
+            return True
 
     @property
     def elapsed_time(self):
-        """Returns elapsed time in seconds since process started
+        """Returns elapsed time in seconds since process started (thread-safe)
         
         Returns:
             float: Elapsed time in seconds, or None if process not started
         """
-        if self._start_time:
-            return time.time() - self._start_time
-        return None
+        with self._lock:
+            if self._start_time:
+                return time.time() - self._start_time
+            return None
 
     @property
     def timeout(self):

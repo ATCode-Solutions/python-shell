@@ -23,6 +23,7 @@ THE SOFTWARE.
 """
 
 import time
+import threading
 import unittest
 
 from python_shell.exceptions import ProcessTimeoutError
@@ -298,3 +299,191 @@ class SubprocessTestCase(unittest.TestCase):
         if sys.version_info[0] == 2:
             from python_shell.shell.processing.process import _SubprocessMeta
             self.assertTrue(_SubprocessMeta._devnull_cleanup_registered)
+
+
+class ThreadSafetyTestCase(unittest.TestCase):
+    """Test case for thread safety of Process classes"""
+
+    processes = []
+
+    def tearDown(self):
+        """Cleanup processes"""
+        for p in self.processes:
+            if not p._process:
+                continue
+            try:
+                p._process.terminate()
+                p._process.wait()
+            except OSError:
+                pass
+            p._process.stderr and p._process.stderr.close()
+            p._process.stdout and p._process.stdout.close()
+
+    def test_concurrent_returncode_access(self):
+        """Check that returncode can be accessed safely from multiple threads"""
+        process = AsyncProcess('sleep', '1')
+        self.processes.append(process)
+        process.execute()
+        
+        results = []
+        errors = []
+        
+        def access_returncode():
+            try:
+                for _ in range(10):
+                    rc = process.returncode
+                    results.append(rc)
+                    time.sleep(0.01)
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=access_returncode) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent access")
+        self.assertGreater(len(results), 0, "Should have collected returncode values")
+
+    def test_concurrent_is_finished_access(self):
+        """Check that is_finished can be accessed safely from multiple threads"""
+        process = AsyncProcess('sleep', '0.5')
+        self.processes.append(process)
+        process.execute()
+        
+        results = []
+        errors = []
+        
+        def access_is_finished():
+            try:
+                for _ in range(10):
+                    finished = process.is_finished
+                    results.append(finished)
+                    time.sleep(0.01)
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=access_is_finished) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent access")
+        self.assertGreater(len(results), 0, "Should have collected is_finished values")
+
+    def test_concurrent_is_terminated_access(self):
+        """Check that is_terminated can be accessed safely from multiple threads"""
+        process = AsyncProcess('sleep', '10')
+        self.processes.append(process)
+        process.execute()
+        
+        results = []
+        errors = []
+        
+        def access_is_terminated():
+            try:
+                for _ in range(5):
+                    terminated = process.is_terminated
+                    results.append(terminated)
+                    time.sleep(0.01)
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=access_is_terminated) for _ in range(3)]
+        for t in threads:
+            t.start()
+        
+        time.sleep(0.2)
+        process.terminate()
+        
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent access")
+        self.assertGreater(len(results), 0, "Should have collected is_terminated values")
+
+    def test_concurrent_terminate_calls(self):
+        """Check that multiple concurrent terminate calls are safe"""
+        process = AsyncProcess('sleep', '10')
+        self.processes.append(process)
+        process.execute()
+        
+        errors = []
+        
+        def terminate_process():
+            try:
+                process.terminate()
+            except UndefinedProcess:
+                pass
+            except Exception as e:
+                errors.append(e)
+        
+        time.sleep(0.1)
+        
+        threads = [threading.Thread(target=terminate_process) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent termination")
+        self.assertTrue(process.is_terminated)
+
+    def test_concurrent_wait_calls(self):
+        """Check that multiple concurrent wait calls are safe"""
+        process = AsyncProcess('sleep', '0.5')
+        self.processes.append(process)
+        process.execute()
+        
+        errors = []
+        
+        def wait_for_process():
+            try:
+                process.wait()
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=wait_for_process) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent wait")
+        self.assertTrue(process.is_finished)
+
+    def test_concurrent_check_timeout_calls(self):
+        """Check that check_timeout can be called safely from multiple threads"""
+        process = AsyncProcess('sleep', '1', timeout=5)
+        self.processes.append(process)
+        process.execute()
+        
+        errors = []
+        results = []
+        
+        def check_timeout():
+            try:
+                result = process.check_timeout()
+                results.append(result)
+            except ProcessTimeoutError:
+                pass
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=check_timeout) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0, "No errors should occur during concurrent timeout checks")
+
+    def test_process_has_lock_attribute(self):
+        """Check that Process instances have a lock attribute"""
+        process = AsyncProcess('echo', 'test')
+        self.processes.append(process)
+        
+        self.assertTrue(hasattr(process, '_lock'), "Process should have _lock attribute")
+        self.assertIsInstance(process._lock, threading.Lock, "Lock should be threading.Lock instance")
