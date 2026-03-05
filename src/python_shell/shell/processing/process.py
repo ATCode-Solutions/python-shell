@@ -23,11 +23,14 @@ THE SOFTWARE.
 """
 
 import abc
+import atexit
 import os
 import subprocess
+import time
 
 from six import with_metaclass
 
+from python_shell.exceptions import ProcessTimeoutError
 from python_shell.exceptions import RunProcessError
 from python_shell.exceptions import UndefinedProcess
 from python_shell.shell.processing.interfaces import IProcess
@@ -239,6 +242,13 @@ class AsyncProcess(Process):
     """Process subclass for running process
     with waiting for its completion"""
 
+    DEFAULT_TIMEOUT = 300
+
+    def __init__(self, command, *args, **kwargs):
+        super(AsyncProcess, self).__init__(command, *args, **kwargs)
+        self._timeout = None
+        self._start_time = None
+
     def execute(self):
         """Run a process in asynchronous way"""
 
@@ -262,11 +272,60 @@ class AsyncProcess(Process):
                 process_kwargs=kwargs
             )
 
+        self._timeout = self._kwargs.get('timeout', self.DEFAULT_TIMEOUT)
+        self._start_time = time.time()
+
+    def check_timeout(self):
+        """Check if process has exceeded timeout and terminate if necessary
+        
+        Returns:
+            bool: True if process is still running within timeout,
+                  False if process has completed
+        
+        Raises:
+            ProcessTimeoutError: If process exceeded timeout limit
+            UndefinedProcess: If process was never started
+        """
+        if not self._process:
+            raise UndefinedProcess
+
+        if self._process.poll() is not None:
+            return False
+
+        if self._timeout and self._start_time:
+            elapsed = time.time() - self._start_time
+            if elapsed > self._timeout:
+                self._process.terminate()
+                self._process.wait()
+                raise ProcessTimeoutError(
+                    timeout=self._timeout,
+                    command=self._command
+                )
+
+        return True
+
+    @property
+    def elapsed_time(self):
+        """Returns elapsed time in seconds since process started
+        
+        Returns:
+            float: Elapsed time in seconds, or None if process not started
+        """
+        if self._start_time:
+            return time.time() - self._start_time
+        return None
+
+    @property
+    def timeout(self):
+        """Returns configured timeout in seconds"""
+        return self._timeout
+
 
 class _SubprocessMeta(type):
     """Meta class for Subprocess"""
 
     _devnull = None
+    _devnull_cleanup_registered = False
 
     @property
     def DEVNULL(cls):  # -> int
@@ -275,6 +334,18 @@ class _SubprocessMeta(type):
         if is_python2_running():
             if cls._devnull is None:
                 cls._devnull = os.open(os.devnull, os.O_RDWR)
+                
+                if not cls._devnull_cleanup_registered:
+                    def _cleanup_devnull():
+                        """Cleanup function to close DEVNULL file descriptor"""
+                        if cls._devnull is not None:
+                            try:
+                                os.close(cls._devnull)
+                            except OSError:
+                                pass
+                    
+                    atexit.register(_cleanup_devnull)
+                    cls._devnull_cleanup_registered = True
         else:
             cls._devnull = subprocess.DEVNULL
 

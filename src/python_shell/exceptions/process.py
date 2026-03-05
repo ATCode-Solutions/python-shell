@@ -25,7 +25,7 @@ THE SOFTWARE.
 from .base import BaseShellException
 
 
-__all__ = ('RunProcessError', 'UndefinedProcess')
+__all__ = ('RunProcessError', 'UndefinedProcess', 'ProcessTimeoutError')
 
 
 class ProcessException(BaseShellException):
@@ -55,4 +55,22 @@ class RunProcessError(Exception):
         return "Fail to run '{cmd} {args}'".format(
             cmd=self._cmd,
             args=' '.join(self._args) if self._args else '',
+        )
+
+
+class ProcessTimeoutError(ProcessException):
+    """Raised when process exceeds timeout limit"""
+
+    def __init__(self, timeout, command=None):
+        self._timeout = timeout
+        self._command = command
+
+    def __str__(self):
+        if self._command:
+            return "Process '{cmd}' exceeded timeout of {timeout} seconds".format(
+                cmd=self._command,
+                timeout=self._timeout
+            )
+        return "Process exceeded timeout of {timeout} seconds".format(
+            timeout=self._timeout
         )

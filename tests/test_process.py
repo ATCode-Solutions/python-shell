@@ -25,6 +25,8 @@ THE SOFTWARE.
 import time
 import unittest
 
+from python_shell.exceptions import ProcessTimeoutError
+from python_shell.exceptions import UndefinedProcess
 from python_shell.shell.processing.process import AsyncProcess
 from python_shell.shell.processing.process import Process
 from python_shell.shell.processing.process import StreamIterator
@@ -183,6 +185,75 @@ class AsyncProcessTestCase(unittest.TestCase):
         self.assertTrue(process.is_finished)
         self.assertEqual(process.returncode, 0)
 
+    def test_async_process_timeout_enforced(self):
+        """Check that timeout is enforced for long-running processes"""
+
+        process = AsyncProcess('sleep', '10', timeout=1)
+        self.processes.append(process)
+        process.execute()
+        
+        time.sleep(1.5)
+        
+        with self.assertRaises(ProcessTimeoutError):
+            process.check_timeout()
+        
+        self.assertTrue(process.is_finished)
+
+    def test_async_process_timeout_not_exceeded(self):
+        """Check that check_timeout returns True when within timeout"""
+
+        process = AsyncProcess('sleep', '2', timeout=5)
+        self.processes.append(process)
+        process.execute()
+        
+        time.sleep(0.5)
+        
+        result = process.check_timeout()
+        self.assertTrue(result)
+
+    def test_async_process_elapsed_time(self):
+        """Check that elapsed_time property works correctly"""
+
+        process = AsyncProcess('sleep', '1', timeout=5)
+        self.processes.append(process)
+        
+        self.assertIsNone(process.elapsed_time)
+        
+        process.execute()
+        time.sleep(0.5)
+        
+        elapsed = process.elapsed_time
+        self.assertIsNotNone(elapsed)
+        self.assertGreaterEqual(elapsed, 0.5)
+        self.assertLess(elapsed, 1.0)
+
+    def test_async_process_timeout_property(self):
+        """Check that timeout property returns configured timeout"""
+
+        process = AsyncProcess('echo', 'test', timeout=42)
+        self.processes.append(process)
+        process.execute()
+        
+        self.assertEqual(process.timeout, 42)
+
+    def test_async_process_default_timeout(self):
+        """Check that default timeout is set when not specified"""
+
+        process = AsyncProcess('echo', 'test')
+        self.processes.append(process)
+        process.execute()
+        
+        self.assertEqual(process.timeout, AsyncProcess.DEFAULT_TIMEOUT)
+
+    def test_async_process_check_timeout_undefined_process(self):
+        """Check that check_timeout raises for undefined process"""
+
+        process = AsyncProcess('echo', 'test')
+        self.processes.append(process)
+        
+        with self.assertRaises(UndefinedProcess):
+            process.check_timeout()
+
 
 class ProcessTestCase(unittest.TestCase):
     """Test case for Process class"""
@@ -203,3 +274,27 @@ class StreamIteratorTestCase(unittest.TestCase):
         stream = StreamIterator(stream=None)
         with self.assertRaises(StopIteration):
             next(stream)
+
+
+class SubprocessTestCase(unittest.TestCase):
+    """Test case for Subprocess wrapper"""
+
+    def test_devnull_property_accessible(self):
+        """Check that DEVNULL property is accessible"""
+        devnull = Subprocess.DEVNULL
+        self.assertIsNotNone(devnull)
+
+    def test_devnull_property_consistent(self):
+        """Check that DEVNULL property returns same value on multiple calls"""
+        devnull1 = Subprocess.DEVNULL
+        devnull2 = Subprocess.DEVNULL
+        self.assertEqual(devnull1, devnull2)
+
+    def test_devnull_cleanup_registered(self):
+        """Check that cleanup handler is registered for Python 2"""
+        import sys
+        devnull = Subprocess.DEVNULL
+        
+        if sys.version_info[0] == 2:
+            from python_shell.shell.processing.process import _SubprocessMeta
+            self.assertTrue(_SubprocessMeta._devnull_cleanup_registered)

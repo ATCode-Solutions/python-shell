@@ -28,6 +28,7 @@ from .shell import *
 
 __all__ = (
     'CommandDoesNotExist',
+    'ProcessTimeoutError',
     'RunProcessError',
     'ShellException',
     'UndefinedProcess'
