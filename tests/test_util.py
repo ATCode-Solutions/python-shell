@@ -22,12 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import os
 import sys
 import unittest
 
+from python_shell.exceptions import ShellEnvironmentError
+from python_shell.exceptions import UnsupportedShellError
 from python_shell.shell.terminal import TERMINAL_INTEGRATION_MAP
 from python_shell.util import is_python2_running
 from python_shell.util import get_current_terminal_name
+from python_shell.util.terminal import SUPPORTED_SHELLS
 
 
 __all__ = ('UtilTestCase',)
@@ -44,3 +48,49 @@ class UtilTestCase(unittest.TestCase):
         """Check that getting current terminal name works"""
         self.assertIn(get_current_terminal_name(),
                       TERMINAL_INTEGRATION_MAP.keys())
+
+    def test_get_current_terminal_name_validates(self):
+        """Check that terminal name is validated"""
+        terminal_name = get_current_terminal_name()
+        self.assertIn(terminal_name, SUPPORTED_SHELLS)
+
+    def test_get_current_terminal_missing_shell_var(self):
+        """Check that missing SHELL variable raises ShellEnvironmentError"""
+        original_shell = os.environ.get('SHELL')
+        
+        try:
+            if 'SHELL' in os.environ:
+                del os.environ['SHELL']
+            
+            with self.assertRaises(ShellEnvironmentError) as ctx:
+                get_current_terminal_name()
+            
+            self.assertIn('SHELL environment variable is not set', str(ctx.exception))
+        finally:
+            if original_shell:
+                os.environ['SHELL'] = original_shell
+
+    def test_get_current_terminal_unsupported_shell(self):
+        """Check that unsupported shell raises UnsupportedShellError"""
+        original_shell = os.environ.get('SHELL')
+        
+        try:
+            os.environ['SHELL'] = '/bin/unsupported_shell_xyz'
+            
+            with self.assertRaises(UnsupportedShellError) as ctx:
+                get_current_terminal_name()
+            
+            error_msg = str(ctx.exception)
+            self.assertIn('unsupported_shell_xyz', error_msg)
+            self.assertIn('Supported shells:', error_msg)
+        finally:
+            if original_shell:
+                os.environ['SHELL'] = original_shell
+            else:
+                if 'SHELL' in os.environ:
+                    del os.environ['SHELL']
+
+    def test_supported_shells_constant(self):
+        """Check that SUPPORTED_SHELLS contains expected shells"""
+        expected_shells = {'bash', 'zsh', 'sh', 'dash', 'ksh', 'fish'}
+        self.assertEqual(SUPPORTED_SHELLS, expected_shells)

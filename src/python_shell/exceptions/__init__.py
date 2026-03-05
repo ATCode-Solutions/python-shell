@@ -30,6 +30,8 @@ __all__ = (
     'CommandDoesNotExist',
     'ProcessTimeoutError',
     'RunProcessError',
+    'ShellEnvironmentError',
     'ShellException',
-    'UndefinedProcess'
+    'UndefinedProcess',
+    'UnsupportedShellError'
 )

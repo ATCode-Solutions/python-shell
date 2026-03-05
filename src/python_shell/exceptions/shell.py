@@ -25,7 +25,7 @@ THE SOFTWARE.
 from .base import BaseShellException
 
 
-__all__ = ('CommandDoesNotExist', 'ShellException')
+__all__ = ('CommandDoesNotExist', 'ShellException', 'ShellEnvironmentError', 'UnsupportedShellError')
 
 
 class ShellException(BaseShellException):
@@ -51,3 +51,29 @@ class CommandDoesNotExist(ShellException):
 
     def __str__(self):
         return 'Command "{}" does not exist'.format(self._command.command)
+
+
+class ShellEnvironmentError(BaseShellException):
+    """Raised when SHELL environment variable is not set or invalid"""
+    
+    def __init__(self, message):
+        super(ShellEnvironmentError, self).__init__()
+        self._message = message
+    
+    def __str__(self):
+        return self._message
+
+
+class UnsupportedShellError(BaseShellException):
+    """Raised when detected shell is not supported"""
+    
+    def __init__(self, shell_name, supported_shells):
+        super(UnsupportedShellError, self).__init__()
+        self._shell_name = shell_name
+        self._supported_shells = supported_shells
+    
+    def __str__(self):
+        return 'Unsupported shell: "{}". Supported shells: {}'.format(
+            self._shell_name,
+            ', '.join(sorted(self._supported_shells))
+        )

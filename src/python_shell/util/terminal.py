@@ -24,16 +24,48 @@ THE SOFTWARE.
 
 import os
 
+from python_shell.exceptions import ShellEnvironmentError
+from python_shell.exceptions import UnsupportedShellError
 
-__all__ = ('get_current_terminal_name',)
+
+__all__ = ('get_current_terminal_name', 'SUPPORTED_SHELLS')
+
+
+SUPPORTED_SHELLS = frozenset(['bash', 'zsh', 'sh', 'dash', 'ksh', 'fish'])
 
 
 def get_current_terminal_name():
-    """Retrieve name of currently active terminal
-
-    NOTE(albartash): Currently retrieves name using $SHELL variable which
-                     is not quite good. Also not sure if work on Windows.
-    TODO(albartash): Replace logic for better one to retrieve a proper
-                     terminal name
+    """Retrieve name of currently active terminal with validation
+    
+    Retrieves the shell name from the SHELL environment variable and
+    validates it against known supported shells.
+    
+    Returns:
+        str: The name of the current shell (e.g., 'bash', 'zsh')
+    
+    Raises:
+        ShellEnvironmentError: If SHELL environment variable is not set
+        UnsupportedShellError: If detected shell is not in SUPPORTED_SHELLS
+    
+    Note:
+        This function relies on the SHELL environment variable which may not
+        be available on all platforms (e.g., Windows). For best compatibility,
+        ensure SHELL is properly set in your environment.
     """
-    return os.environ['SHELL'].split('/')[-1]
+    shell_path = os.environ.get('SHELL')
+    
+    if not shell_path:
+        raise ShellEnvironmentError(
+            "SHELL environment variable is not set. "
+            "Please set SHELL to your shell executable path (e.g., /bin/bash)."
+        )
+    
+    shell_name = os.path.basename(shell_path)
+    
+    if shell_name not in SUPPORTED_SHELLS:
+        raise UnsupportedShellError(
+            shell_name=shell_name,
+            supported_shells=SUPPORTED_SHELLS
+        )
+    
+    return shell_name

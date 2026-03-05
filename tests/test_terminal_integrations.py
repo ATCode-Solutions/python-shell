@@ -71,3 +71,39 @@ class BashTerminalIntegrationTestCase(TerminalIntegrationTestCase):
     def test_bash_available_commands(self):
         """Check if Bash available commands can be retrieved"""
         self._test_terminal_available_commands('BashTerminalIntegration')
+
+
+class ZshTerminalIntegrationTestCase(TerminalIntegrationTestCase):
+    """Test case for Zsh terminal integration"""
+
+    def test_zsh_available_commands(self):
+        """Check if Zsh available commands can be retrieved"""
+        self._test_terminal_available_commands('ZshTerminalIntegration')
+    
+    def test_zsh_shell_name(self):
+        """Check that Zsh shell name is correct"""
+        term = terminal.ZshTerminalIntegration()
+        self.assertEqual(term.shell_name, 'zsh')
+
+
+class PosixShellIntegrationTestCase(TerminalIntegrationTestCase):
+    """Test case for POSIX shell integration"""
+
+    def test_posix_shell_available_commands(self):
+        """Check if POSIX shell available commands can be retrieved"""
+        term = terminal.PosixShellIntegration('sh')
+        commands = term.available_commands
+        self.assertIsInstance(commands, list)
+        self.assertGreater(len(commands), 0)
+    
+    def test_posix_shell_name(self):
+        """Check that shell name is configurable"""
+        for shell in ['sh', 'dash', 'ksh', 'fish']:
+            term = terminal.PosixShellIntegration(shell)
+            self.assertEqual(term.shell_name, shell)
+    
+    def test_posix_shell_commands_sorted(self):
+        """Check that commands are sorted"""
+        term = terminal.PosixShellIntegration('sh')
+        commands = term.available_commands
+        self.assertEqual(commands, sorted(commands))

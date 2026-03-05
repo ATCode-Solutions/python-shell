@@ -26,5 +26,10 @@ from .bash import *
 
 
 TERMINAL_INTEGRATION_MAP = {
-    'bash': BashTerminalIntegration
+    'bash': BashTerminalIntegration,
+    'zsh': ZshTerminalIntegration,
+    'sh': lambda: PosixShellIntegration('sh'),
+    'dash': lambda: PosixShellIntegration('dash'),
+    'ksh': lambda: PosixShellIntegration('ksh'),
+    'fish': lambda: PosixShellIntegration('fish'),
 }
