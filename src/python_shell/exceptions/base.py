@@ -41,7 +41,6 @@ class BaseShellException(Exception):
     def __init__(self, *args, **kwargs):
         super(BaseShellException, self).__init__(*args, **kwargs)
         
-        # Capture context at exception creation time
         self.timestamp = datetime.datetime.utcnow()
         self.user = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
         try:

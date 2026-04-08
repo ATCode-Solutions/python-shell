@@ -37,6 +37,7 @@ __all__ = (
     'RunProcessError',
     'ShellEnvironmentError',
     'ShellException',
+    'StreamDecodingError',
     'UndefinedProcess',
     'UnsupportedShellError'
 )

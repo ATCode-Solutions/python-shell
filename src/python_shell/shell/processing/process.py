@@ -43,7 +43,6 @@ from python_shell.shell.processing.interfaces import IProcess
 from python_shell.util.version import is_python2_running
 
 
-# Security logger for auditing process execution
 _security_logger = logging.getLogger('python_shell.security.process')
 
 
@@ -235,44 +234,36 @@ class SyncProcess(Process):
                     **kwargs
                 )
             except OSError as e:
-                # Log security-relevant error
                 _security_logger.warning(
                     "Process execution failed: cmd=%s, error=%s, errno=%s",
                     arguments[0], str(e), getattr(e, 'errno', None)
                 )
                 
-                # Python 2/3 compatible error handling
-                # FileNotFoundError and PermissionError are Python 3 only
                 if sys.version_info[0] >= 3:
-                    # Python 3: Can check specific exception types
                     if isinstance(e, FileNotFoundError):
                         raise CommandNotFoundError(arguments[0], e)
                     elif isinstance(e, PermissionError):
                         raise PermissionDeniedError(arguments[0], e)
                 else:
-                    # Python 2: Check errno values
                     import errno
                     if hasattr(e, 'errno'):
-                        if e.errno == errno.ENOENT:  # No such file or directory
+                        if e.errno == errno.ENOENT:
                             raise CommandNotFoundError(arguments[0], e)
-                        elif e.errno == errno.EACCES:  # Permission denied
+                        elif e.errno == errno.EACCES:
                             raise PermissionDeniedError(arguments[0], e)
                 
-                # Generic OSError - wrap in RunProcessError
                 raise RunProcessError(
                     cmd=arguments[0],
                     process_args=arguments[1:],
                     process_kwargs=kwargs
                 )
             except (ValueError, TypeError, AttributeError) as e:
-                # Log security-relevant error  
                 _security_logger.warning(
                     "Invalid arguments for process: cmd=%s, error=%s",
                     arguments[0], str(e)
                 )
                 raise InvalidArgumentError(arguments[0], arguments[1:], e)
             except Exception as e:
-                # Catch any other unexpected exceptions and log them
                 _security_logger.error(
                     "Unexpected error executing process: cmd=%s, error=%s, type=%s",
                     arguments[0], str(e), type(e).__name__
@@ -320,44 +311,36 @@ class AsyncProcess(Process):
                     **kwargs
                 )
             except OSError as e:
-                # Log security-relevant error
                 _security_logger.warning(
                     "Process execution failed: cmd=%s, error=%s, errno=%s",
                     arguments[0], str(e), getattr(e, 'errno', None)
                 )
                 
-                # Python 2/3 compatible error handling
-                # FileNotFoundError and PermissionError are Python 3 only
                 if sys.version_info[0] >= 3:
-                    # Python 3: Can check specific exception types
                     if isinstance(e, FileNotFoundError):
                         raise CommandNotFoundError(arguments[0], e)
                     elif isinstance(e, PermissionError):
                         raise PermissionDeniedError(arguments[0], e)
                 else:
-                    # Python 2: Check errno values
                     import errno
                     if hasattr(e, 'errno'):
-                        if e.errno == errno.ENOENT:  # No such file or directory
+                        if e.errno == errno.ENOENT:
                             raise CommandNotFoundError(arguments[0], e)
-                        elif e.errno == errno.EACCES:  # Permission denied
+                        elif e.errno == errno.EACCES:
                             raise PermissionDeniedError(arguments[0], e)
                 
-                # Generic OSError - wrap in RunProcessError
                 raise RunProcessError(
                     cmd=arguments[0],
                     process_args=arguments[1:],
                     process_kwargs=kwargs
                 )
             except (ValueError, TypeError, AttributeError) as e:
-                # Log security-relevant error  
                 _security_logger.warning(
                     "Invalid arguments for process: cmd=%s, error=%s",
                     arguments[0], str(e)
                 )
                 raise InvalidArgumentError(arguments[0], arguments[1:], e)
             except Exception as e:
-                # Catch any other unexpected exceptions and log them
                 _security_logger.error(
                     "Unexpected error executing process: cmd=%s, error=%s, type=%s",
                     arguments[0], str(e), type(e).__name__

@@ -31,7 +31,8 @@ __all__ = (
     'ProcessTimeoutError',
     'CommandNotFoundError',
     'PermissionDeniedError',
-    'InvalidArgumentError'
+    'InvalidArgumentError',
+    'StreamDecodingError'
 )
 
 
@@ -131,6 +132,23 @@ class InvalidArgumentError(ProcessException):
         base_msg = "Invalid arguments for command '{}': {}".format(
             self._command,
             ' '.join(str(a) for a in self._args) if self._args else 'N/A'
+        )
+        if self._original_error:
+            base_msg = "{}: {}".format(base_msg, str(self._original_error))
+        return '{} [{}]'.format(base_msg, self.get_context_string())
+
+
+class StreamDecodingError(ProcessException):
+    """Raised when stream output cannot be decoded"""
+
+    def __init__(self, encoding, original_error=None):
+        super(StreamDecodingError, self).__init__()
+        self._encoding = encoding
+        self._original_error = original_error
+
+    def __str__(self):
+        base_msg = "Failed to decode stream output with encoding '{}'".format(
+            self._encoding
         )
         if self._original_error:
             base_msg = "{}: {}".format(base_msg, str(self._original_error))

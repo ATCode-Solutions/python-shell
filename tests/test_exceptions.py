@@ -183,7 +183,6 @@ class ExceptionContextTestCase(unittest.TestCase):
         """Check that user is captured from environment"""
         exc = exceptions.BaseShellException("test")
         
-        # User should be captured from USER or USERNAME env var
         expected_user = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
         self.assertEqual(exc.user, expected_user)
 
@@ -235,7 +234,6 @@ class SpecificExceptionHandlingTestCase(unittest.TestCase):
 
     def test_invalid_argument_error_sync(self):
         """Check that InvalidArgumentError is raised for invalid arguments (SyncProcess)"""
-        # Pass invalid stdin (not a file-like object or PIPE)
         process = SyncProcess('echo', 'test', stdin='invalid')
         self.processes.append(process)
         
@@ -248,7 +246,6 @@ class SpecificExceptionHandlingTestCase(unittest.TestCase):
 
     def test_invalid_argument_error_async(self):
         """Check that InvalidArgumentError is raised for invalid arguments (AsyncProcess)"""
-        # Pass invalid stdin (not a file-like object or PIPE)
         process = AsyncProcess('echo', 'test', stdin='invalid')
         self.processes.append(process)
         
