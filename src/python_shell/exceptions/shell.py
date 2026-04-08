@@ -38,10 +38,11 @@ class ShellException(BaseShellException):
         self._command = command
 
     def __str__(self):
-        return 'Shell command "{} {}" failed with return code {}'.format(
+        base_msg = 'Shell command "{} {}" failed with return code {}'.format(
             self._command.command,
             self._command.arguments,
             self._command.return_code)
+        return '{} [{}]'.format(base_msg, self.get_context_string())
 
 
 class CommandDoesNotExist(ShellException):
@@ -50,7 +51,8 @@ class CommandDoesNotExist(ShellException):
         super(CommandDoesNotExist, self).__init__(command)
 
     def __str__(self):
-        return 'Command "{}" does not exist'.format(self._command.command)
+        base_msg = 'Command "{}" does not exist'.format(self._command.command)
+        return '{} [{}]'.format(base_msg, self.get_context_string())
 
 
 class ShellEnvironmentError(BaseShellException):
@@ -61,7 +63,7 @@ class ShellEnvironmentError(BaseShellException):
         self._message = message
     
     def __str__(self):
-        return self._message
+        return '{} [{}]'.format(self._message, self.get_context_string())
 
 
 class UnsupportedShellError(BaseShellException):
@@ -73,7 +75,8 @@ class UnsupportedShellError(BaseShellException):
         self._supported_shells = supported_shells
     
     def __str__(self):
-        return 'Unsupported shell: "{}". Supported shells: {}'.format(
+        base_msg = 'Unsupported shell: "{}". Supported shells: {}'.format(
             self._shell_name,
             ', '.join(sorted(self._supported_shells))
         )
+        return '{} [{}]'.format(base_msg, self.get_context_string())

@@ -22,8 +22,45 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import datetime
+import os
+
 __all__ = ('BaseShellException',)
 
 
 class BaseShellException(Exception):
-    """Base exception for all exceptions within the library"""
+    """Base exception for all exceptions within the library
+    
+    Includes security-relevant context for auditing and forensics:
+    - timestamp: When the exception occurred
+    - user: User who executed the command
+    - cwd: Current working directory
+    - pid: Process ID
+    """
+    
+    def __init__(self, *args, **kwargs):
+        super(BaseShellException, self).__init__(*args, **kwargs)
+        
+        # Capture context at exception creation time
+        self.timestamp = datetime.datetime.utcnow()
+        self.user = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
+        try:
+            self.cwd = os.getcwd()
+        except OSError:
+            self.cwd = 'unknown'
+        self.pid = os.getpid()
+    
+    def get_context_string(self):
+        """Returns formatted context information for logging/debugging
+        
+        Returns:
+            str: Formatted context with timestamp, user, cwd, and pid
+        """
+        return (
+            "Context: timestamp={timestamp}, user={user}, cwd={cwd}, pid={pid}"
+        ).format(
+            timestamp=self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC'),
+            user=self.user,
+            cwd=self.cwd,
+            pid=self.pid
+        )

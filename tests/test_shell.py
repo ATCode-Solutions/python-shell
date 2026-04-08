@@ -49,9 +49,9 @@ class ShellTestCase(unittest.TestCase):
         """Check the case when Shell command returns non-zero code"""
         with self.assertRaises(ShellException) as context:
             Shell.mkdir('/tmp')
-        self.assertEqual(str(context.exception),
-                         'Shell command "mkdir /tmp" failed '
-                         'with return code 1')
+        error_str = str(context.exception)
+        self.assertIn('Shell command "mkdir /tmp" failed with return code 1', error_str)
+        self.assertIn('Context:', error_str)
 
     def test_last_command(self):
         """Check "last_command" property to be working"""

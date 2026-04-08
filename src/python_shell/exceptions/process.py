@@ -36,41 +36,46 @@ class UndefinedProcess(ProcessException):
     """Raises when there's a try to use undefined process"""
 
     def __str__(self):
-        return "Undefined process cannot be used"
+        base_msg = "Undefined process cannot be used"
+        return '{} [{}]'.format(base_msg, self.get_context_string())
 
 
-class RunProcessError(Exception):
+class RunProcessError(BaseShellException):
     """Raised when process fails to be run"""
 
     def __init__(self,
                  cmd,
                  process_args=None,
                  process_kwargs=None):
-
+        super(RunProcessError, self).__init__()
         self._cmd = cmd
         self._args = process_args
         self._kwargs = process_kwargs
 
     def __str__(self):
-        return "Fail to run '{cmd} {args}'".format(
+        base_msg = "Fail to run '{cmd} {args}'".format(
             cmd=self._cmd,
             args=' '.join(self._args) if self._args else '',
         )
+        return '{} [{}]'.format(base_msg, self.get_context_string())
 
 
 class ProcessTimeoutError(ProcessException):
     """Raised when process exceeds timeout limit"""
 
     def __init__(self, timeout, command=None):
+        super(ProcessTimeoutError, self).__init__()
         self._timeout = timeout
         self._command = command
 
     def __str__(self):
         if self._command:
-            return "Process '{cmd}' exceeded timeout of {timeout} seconds".format(
+            base_msg = "Process '{cmd}' exceeded timeout of {timeout} seconds".format(
                 cmd=self._command,
                 timeout=self._timeout
             )
-        return "Process exceeded timeout of {timeout} seconds".format(
-            timeout=self._timeout
-        )
+        else:
+            base_msg = "Process exceeded timeout of {timeout} seconds".format(
+                timeout=self._timeout
+            )
+        return '{} [{}]'.format(base_msg, self.get_context_string())
