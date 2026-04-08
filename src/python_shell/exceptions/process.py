@@ -25,7 +25,14 @@ THE SOFTWARE.
 from .base import BaseShellException
 
 
-__all__ = ('RunProcessError', 'UndefinedProcess', 'ProcessTimeoutError')
+__all__ = (
+    'RunProcessError',
+    'UndefinedProcess',
+    'ProcessTimeoutError',
+    'CommandNotFoundError',
+    'PermissionDeniedError',
+    'InvalidArgumentError'
+)
 
 
 class ProcessException(BaseShellException):
@@ -78,4 +85,53 @@ class ProcessTimeoutError(ProcessException):
             base_msg = "Process exceeded timeout of {timeout} seconds".format(
                 timeout=self._timeout
             )
+        return '{} [{}]'.format(base_msg, self.get_context_string())
+
+
+class CommandNotFoundError(ProcessException):
+    """Raised when command executable is not found"""
+
+    def __init__(self, command, original_error=None):
+        super(CommandNotFoundError, self).__init__()
+        self._command = command
+        self._original_error = original_error
+
+    def __str__(self):
+        base_msg = "Command '{}' not found".format(self._command)
+        if self._original_error:
+            base_msg = "{}: {}".format(base_msg, str(self._original_error))
+        return '{} [{}]'.format(base_msg, self.get_context_string())
+
+
+class PermissionDeniedError(ProcessException):
+    """Raised when insufficient permissions to execute command"""
+
+    def __init__(self, command, original_error=None):
+        super(PermissionDeniedError, self).__init__()
+        self._command = command
+        self._original_error = original_error
+
+    def __str__(self):
+        base_msg = "Permission denied to execute '{}'".format(self._command)
+        if self._original_error:
+            base_msg = "{}: {}".format(base_msg, str(self._original_error))
+        return '{} [{}]'.format(base_msg, self.get_context_string())
+
+
+class InvalidArgumentError(ProcessException):
+    """Raised when invalid arguments provided to process"""
+
+    def __init__(self, command, args, original_error=None):
+        super(InvalidArgumentError, self).__init__()
+        self._command = command
+        self._args = args
+        self._original_error = original_error
+
+    def __str__(self):
+        base_msg = "Invalid arguments for command '{}': {}".format(
+            self._command,
+            ' '.join(str(a) for a in self._args) if self._args else 'N/A'
+        )
+        if self._original_error:
+            base_msg = "{}: {}".format(base_msg, str(self._original_error))
         return '{} [{}]'.format(base_msg, self.get_context_string())

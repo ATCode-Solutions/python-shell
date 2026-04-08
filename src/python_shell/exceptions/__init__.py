@@ -30,6 +30,9 @@ from .shell import *
 __all__ = (
     'BaseShellException',
     'CommandDoesNotExist',
+    'CommandNotFoundError',
+    'InvalidArgumentError',
+    'PermissionDeniedError',
     'ProcessTimeoutError',
     'RunProcessError',
     'ShellEnvironmentError',

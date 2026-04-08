@@ -24,6 +24,7 @@ THE SOFTWARE.
 
 import datetime
 import os
+import sys
 import time
 import unittest
 
@@ -71,18 +72,19 @@ class ExceptionTestCase(unittest.TestCase):
                     self.fail("UndefinedProcess was not thrown")
 
     def test_run_process_error(self):
-        """Check exception for running process"""
+        """Check exception for running process (now raises CommandNotFoundError)"""
 
         for process_cls in (SyncProcess, AsyncProcess):
             try:
                 process = process_cls('sleepa', 'asd')
                 process.execute()
-            except exceptions.RunProcessError as e:
+            except exceptions.CommandNotFoundError as e:
                 error_str = str(e)
-                self.assertIn("Fail to run 'sleepa asd'", error_str)
+                self.assertIn('sleepa', error_str)
+                self.assertIn('not found', error_str.lower())
                 self.assertIn('Context:', error_str)
             else:
-                self.fail("RunProcessError was not thrown")
+                self.fail("CommandNotFoundError was not thrown")
 
 
 class ExceptionContextTestCase(unittest.TestCase):
@@ -184,3 +186,109 @@ class ExceptionContextTestCase(unittest.TestCase):
         # User should be captured from USER or USERNAME env var
         expected_user = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
         self.assertEqual(exc.user, expected_user)
+
+
+class SpecificExceptionHandlingTestCase(unittest.TestCase):
+    """Test case for specific exception handling"""
+
+    processes = []
+
+    def tearDown(self):
+        """Cleanup processes"""
+        for p in self.processes:
+            if not p._process:
+                continue
+            try:
+                p._process.terminate()
+                p._process.wait()
+            except OSError:
+                pass
+            if p._process.stderr:
+                p._process.stderr.close()
+            if p._process.stdout:
+                p._process.stdout.close()
+
+    def test_command_not_found_error_sync(self):
+        """Check that CommandNotFoundError is raised for non-existent command (SyncProcess)"""
+        process = SyncProcess('nonexistent_command_xyz_12345')
+        self.processes.append(process)
+        
+        with self.assertRaises(exceptions.CommandNotFoundError) as ctx:
+            process.execute()
+        
+        error_str = str(ctx.exception)
+        self.assertIn('nonexistent_command_xyz_12345', error_str)
+        self.assertIn('not found', error_str.lower())
+        self.assertIn('Context:', error_str)
+
+    def test_command_not_found_error_async(self):
+        """Check that CommandNotFoundError is raised for non-existent command (AsyncProcess)"""
+        process = AsyncProcess('nonexistent_command_xyz_12345')
+        self.processes.append(process)
+        
+        with self.assertRaises(exceptions.CommandNotFoundError) as ctx:
+            process.execute()
+        
+        error_str = str(ctx.exception)
+        self.assertIn('nonexistent_command_xyz_12345', error_str)
+        self.assertIn('not found', error_str.lower())
+
+    def test_invalid_argument_error_sync(self):
+        """Check that InvalidArgumentError is raised for invalid arguments (SyncProcess)"""
+        # Pass invalid stdin (not a file-like object or PIPE)
+        process = SyncProcess('echo', 'test', stdin='invalid')
+        self.processes.append(process)
+        
+        with self.assertRaises(exceptions.InvalidArgumentError) as ctx:
+            process.execute()
+        
+        error_str = str(ctx.exception)
+        self.assertIn('Invalid arguments', error_str)
+        self.assertIn('echo', error_str)
+
+    def test_invalid_argument_error_async(self):
+        """Check that InvalidArgumentError is raised for invalid arguments (AsyncProcess)"""
+        # Pass invalid stdin (not a file-like object or PIPE)
+        process = AsyncProcess('echo', 'test', stdin='invalid')
+        self.processes.append(process)
+        
+        with self.assertRaises(exceptions.InvalidArgumentError) as ctx:
+            process.execute()
+        
+        error_str = str(ctx.exception)
+        self.assertIn('Invalid arguments', error_str)
+
+    def test_command_not_found_error_has_context(self):
+        """Check that CommandNotFoundError includes security context"""
+        exc = exceptions.CommandNotFoundError('missing_cmd')
+        
+        error_str = str(exc)
+        self.assertIn('missing_cmd', error_str)
+        self.assertIn('Context:', error_str)
+        self.assertIn('timestamp=', error_str)
+        self.assertIn('user=', error_str)
+        self.assertIn('pid=', error_str)
+
+    def test_permission_denied_error_has_context(self):
+        """Check that PermissionDeniedError includes security context"""
+        exc = exceptions.PermissionDeniedError('/restricted/command')
+        
+        error_str = str(exc)
+        self.assertIn('/restricted/command', error_str)
+        self.assertIn('Permission denied', error_str)
+        self.assertIn('Context:', error_str)
+
+    def test_invalid_argument_error_has_context(self):
+        """Check that InvalidArgumentError includes security context"""
+        exc = exceptions.InvalidArgumentError('cmd', ['arg1', 'arg2'])
+        
+        error_str = str(exc)
+        self.assertIn('cmd', error_str)
+        self.assertIn('Invalid arguments', error_str)
+        self.assertIn('Context:', error_str)
+
+    def test_exceptions_exported_in_module(self):
+        """Check that new exception types are exported"""
+        self.assertTrue(hasattr(exceptions, 'CommandNotFoundError'))
+        self.assertTrue(hasattr(exceptions, 'PermissionDeniedError'))
+        self.assertTrue(hasattr(exceptions, 'InvalidArgumentError'))
