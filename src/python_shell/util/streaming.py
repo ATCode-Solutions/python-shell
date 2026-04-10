@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Alex Sokolov
+Copyright (c) 2026 ATCode Solutions inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,10 +22,43 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import logging
+
+from python_shell.exceptions import StreamDecodingError
+
+
 __all__ = ('decode_stream',)
 
+_security_logger = logging.getLogger('python_shell.security.stream')
 
-def decode_stream(stream):
-    """Decodes stream and returns as a single string"""
 
-    return ''.join(map(lambda s: s.decode(), stream))
+def decode_stream(stream, encoding='utf-8', errors='replace'):
+    try:
+        decoded_chunks = []
+        for chunk in stream:
+            try:
+                if isinstance(chunk, bytes):
+                    decoded_chunks.append(chunk.decode(encoding, errors=errors))
+                else:
+                    decoded_chunks.append(chunk)
+            except (UnicodeDecodeError, AttributeError) as e:
+                _security_logger.warning(
+                    "Stream decoding warning: encoding=%s, errors=%s, error=%s",
+                    encoding, errors, str(e)
+                )
+                
+                if errors == 'strict':
+                    raise StreamDecodingError(encoding, e)
+                
+                continue
+        
+        return ''.join(decoded_chunks)
+    
+    except StreamDecodingError:
+        raise
+    except Exception as e:
+        _security_logger.error(
+            "Unexpected error during stream decoding: encoding=%s, error=%s, type=%s",
+            encoding, str(e), type(e).__name__
+        )
+        raise StreamDecodingError(encoding, e)

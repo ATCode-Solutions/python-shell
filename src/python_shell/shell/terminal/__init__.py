@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Alex Sokolov
+Copyright (c) 2026 ATCode Solutions inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,5 +26,10 @@ from .bash import *
 
 
 TERMINAL_INTEGRATION_MAP = {
-    'bash': BashTerminalIntegration
+    'bash': BashTerminalIntegration,
+    'zsh': ZshTerminalIntegration,
+    'sh': lambda: PosixShellIntegration('sh'),
+    'dash': lambda: PosixShellIntegration('dash'),
+    'ksh': lambda: PosixShellIntegration('ksh'),
+    'fish': lambda: PosixShellIntegration('fish'),
 }

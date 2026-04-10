@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Alex Sokolov
+Copyright (c) 2026 ATCode Solutions inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,20 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
+
+import sys
+import warnings
+
+if sys.version_info[0] == 2:
+    warnings.warn(
+        "You are using python-shell with Python 2.7, which reached end-of-life on "
+        "January 1, 2020. Python 2.7 has known security vulnerabilities that will "
+        "never be fixed. It is strongly recommended to upgrade to Python 3.7 or later "
+        "to ensure your application remains secure. "
+        "For more information, visit: https://www.python.org/doc/sunset-python-2/",
+        DeprecationWarning,
+        stacklevel=2
+    )
 
 from .shell import Shell
 from .version import get_version

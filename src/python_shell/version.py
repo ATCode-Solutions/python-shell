@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Alex Sokolov
+Copyright (c) 2026 ATCode Solutions inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,7 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-import pkg_resources
+import os
+
+try:
+    import pkg_resources
+    _has_pkg_resources = True
+except ImportError:
+    _has_pkg_resources = False
 
 
 __all__ = ('get_version',)
@@ -30,5 +36,21 @@ __all__ = ('get_version',)
 
 def get_version():
     """Retrieves version of the current root package"""
-
-    return pkg_resources.require('python_shell')[0].version.strip()
+    
+    if _has_pkg_resources:
+        try:
+            return pkg_resources.require('python_shell')[0].version.strip()
+        except Exception:
+            pass
+    
+    version_file = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        '..',
+        'VERSION'
+    )
+    
+    try:
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except (IOError, OSError):
+        return 'unknown'

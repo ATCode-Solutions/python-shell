@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Alex Sokolov
+Copyright (c) 2026 ATCode Solutions inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ THE SOFTWARE.
 from .base import BaseShellException
 
 
-__all__ = ('CommandDoesNotExist', 'ShellException')
+__all__ = ('CommandDoesNotExist', 'ShellException', 'ShellEnvironmentError', 'UnsupportedShellError')
 
 
 class ShellException(BaseShellException):
@@ -38,10 +38,11 @@ class ShellException(BaseShellException):
         self._command = command
 
     def __str__(self):
-        return 'Shell command "{} {}" failed with return code {}'.format(
+        base_msg = 'Shell command "{} {}" failed with return code {}'.format(
             self._command.command,
             self._command.arguments,
             self._command.return_code)
+        return '{} [{}]'.format(base_msg, self.get_context_string())
 
 
 class CommandDoesNotExist(ShellException):
@@ -50,4 +51,32 @@ class CommandDoesNotExist(ShellException):
         super(CommandDoesNotExist, self).__init__(command)
 
     def __str__(self):
-        return 'Command "{}" does not exist'.format(self._command.command)
+        base_msg = 'Command "{}" does not exist'.format(self._command.command)
+        return '{} [{}]'.format(base_msg, self.get_context_string())
+
+
+class ShellEnvironmentError(BaseShellException):
+    """Raised when SHELL environment variable is not set or invalid"""
+    
+    def __init__(self, message):
+        super(ShellEnvironmentError, self).__init__()
+        self._message = message
+    
+    def __str__(self):
+        return '{} [{}]'.format(self._message, self.get_context_string())
+
+
+class UnsupportedShellError(BaseShellException):
+    """Raised when detected shell is not supported"""
+    
+    def __init__(self, shell_name, supported_shells):
+        super(UnsupportedShellError, self).__init__()
+        self._shell_name = shell_name
+        self._supported_shells = supported_shells
+    
+    def __str__(self):
+        base_msg = 'Unsupported shell: "{}". Supported shells: {}'.format(
+            self._shell_name,
+            ', '.join(sorted(self._supported_shells))
+        )
+        return '{} [{}]'.format(base_msg, self.get_context_string())
