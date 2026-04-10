@@ -1,5 +1,13 @@
 # Changes
 
+### 2026-04-09
+
+* Added support for Python 3.10-3.13
+* Moved codebase to a new repository
+* Updated copyrights
+* Fixed a set of various bugs and security issues
+
+
 ### 2020-03-06
 
 * Added support for Python 3.9 and PyPy
